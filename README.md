@@ -1,5 +1,12 @@
 PKHeX
 =====
+
+> **This fork: PKHeX GBA.** [`gba/`](gba/README.md) holds an on-GBA save editor for
+> the Generation 3 games: a multiboot program, sent from a
+> [gbagate](https://github.com/HelaFaye/gbagate) board, that edits the save of the
+> cartridge in the GBA's slot, with no computer. It is separate from PKHeX itself:
+> C for the GBA, sharing no code with the C# below, and not proposed upstream.
+> Everything else in this repository is PKHeX as upstream has it.
 <div>
   <span>English</span> / <a href=".github/README-es.md">Español</a> / <a href=".github/README-fr.md">Français</a> / <a href=".github/README-de.md">Deutsch</a> / <a href=".github/README-it.md">Italiano</a> / <a href=".github/README-ja.md">日本語</a> / <a href=".github/README-ko.md">한국어</a> / <a href=".github/README-zh-Hans.md">简体中文</a> / <a href=".github/README-zh-Hant.md">繁體中文</a>
 </div>

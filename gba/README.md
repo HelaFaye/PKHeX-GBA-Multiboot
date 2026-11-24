@@ -9,6 +9,17 @@ It lives beside PKHeX in this repository, and follows PKHeX's reading of the
 format (`PKHeX.Core/Saves/SAV3.cs`). It shares no code with PKHeX: PKHeX is C#
 on .NET, and this program is C for a 16 MHz ARM7 with 256 KB of RAM.
 
+## Status
+
+- **Done:** the "view, then edit basics" milestone. It runs on Emerald in mGBA,
+  tested end to end (below).
+- **Not done:**
+  - running on a real GBA;
+  - the other games, which are untested;
+  - the editing listed under "Not yet".
+- **The screens** are text on a 30×20 grid, in PKHeX's spirit but not its look:
+  no sprites, no box grid of icons, no tabs. See "Not yet".
+
 ## Using it
 
 1. Build `build/editor.mb` (below), and put it on gbagate's microSD card with
@@ -69,6 +80,10 @@ Not yet:
 - species, PID, shininess, OT, ribbons, contest stats, Pokérus;
 - moving Pokémon between slots;
 - the Pokédex flags, bag, money.
+- a look closer to PKHeX's:
+  - Pokémon icons, which would be read from the cartridge as the names are;
+  - a 6×5 box grid;
+  - the editor's tabs (Main, Met, Stats, Moves) as pages.
 
 ## Building and testing
 
