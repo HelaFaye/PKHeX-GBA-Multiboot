@@ -21,6 +21,10 @@ int edit_set_iv(mon_t *m, int stat, int v);
 int edit_set_ev(mon_t *m, int stat, int v);
 /* Replace a move, with its base PP; move 0 clears the slot. */
 void edit_set_move(mon_t *m, int slot, uint16_t move, uint8_t base_pp);
+/* Close the gaps a cleared move leaves: the games keep a Pokemon's moves
+ * first, with no empty slot before a used one. Each move keeps its PP and
+ * PP Ups. */
+void edit_compact_moves(mon_t *m);
 /* Set the nickname from game characters (stopping at EOS), padded. */
 void edit_set_nickname(mon_t *m, const uint8_t name[10]);
 #endif

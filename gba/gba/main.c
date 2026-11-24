@@ -178,6 +178,11 @@ static void mon_screen(uint8_t *src, int party) {
     if (!mon_present(&m) || !m.checksum_ok) return;
     species_stats_t sp;
     const int have_stats = romdata_species_stats(&s_rd, mon_species(&m), &sp);
+    /* Eggs are shown, not edited: an egg's level and moves mean something
+     * else to the game. Japanese games use another character set, so their
+     * names are not edited either. */
+    const int egg = mon_is_egg(&m);
+    const int western_names = s_code[3] != 'J';
     int row = 0, col = 0, changed = 0;
     for (;;) {
         g_status.screen = SCR_MON;
@@ -261,7 +266,8 @@ static void mon_screen(uint8_t *src, int party) {
         }
         footer(row >= ROW_IV ? "<>:1 LR:10 A:next stat B:done" : row == ROW_NAME ? "A: change name    B: done"
                                                                       : "<>: 1   L/R: 10   B: done");
-        if (!have_stats) put(0, 18, PAL_WARN, "No base stats: level fixed");
+        if (egg) put(0, 18, PAL_WARN, "An egg: shown, not edited");
+        else if (!have_stats) put(0, 18, PAL_WARN, "No base stats: level fixed");
 
         const int k = wait_key();
         if (k & KEY_B) break;
@@ -273,7 +279,8 @@ static void mon_screen(uint8_t *src, int party) {
         if (k & KEY_R) d = 10;
         if (k & KEY_L) d = -10;
         if ((k & KEY_A) && row >= ROW_IV) col = (col + 1) % 6;
-        if ((k & KEY_A) && row == ROW_NAME) {
+        if (egg) continue;
+        if ((k & KEY_A) && row == ROW_NAME && western_names) {
             uint8_t nm[10];
             mem_copy(nm, mon_nickname(&m), 10);
             if (name_editor(nm)) { edit_set_nickname(&m, nm); changed = 1; }
@@ -285,8 +292,10 @@ static void mon_screen(uint8_t *src, int party) {
             if (have_stats) { edit_set_level(&m, &sp, mon_level_of(&m) + d); changed = 1; }
             break;
         case ROW_ITEM: {
+            if (!s_rd.items_max) break;               /* no item table: no item numbers to trust */
+            const int n = s_rd.items_max + 1;
             int v = (int)mon_item(&m) + d;
-            v = (v + RD_ITEMS_MAX + 1) % (RD_ITEMS_MAX + 1);
+            v = ((v % n) + n) % n;
             mon_set_item(&m, (uint16_t)v);
             changed = 1;
             break;
@@ -302,7 +311,7 @@ static void mon_screen(uint8_t *src, int party) {
         default: {
             const int slot = row - ROW_MOVE1;
             int v = (int)mon_move(&m, slot) + d;
-            v = (v + RD_MOVES_MAX + 1) % (RD_MOVES_MAX + 1);
+            v = ((v % (RD_MOVES_MAX + 1)) + RD_MOVES_MAX + 1) % (RD_MOVES_MAX + 1);
             edit_set_move(&m, slot, (uint16_t)v, romdata_move_pp(&s_rd, (uint16_t)v));
             changed = 1;
         }
@@ -310,6 +319,7 @@ static void mon_screen(uint8_t *src, int party) {
         if (have_stats) edit_refresh(&m, &sp);
     }
     if (changed) {
+        edit_compact_moves(&m);                       /* no empty slot before a used one */
         mon_store(&m, src);
         s_dirty = 1;
     }

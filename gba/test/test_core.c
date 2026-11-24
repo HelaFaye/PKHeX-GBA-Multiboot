@@ -323,8 +323,11 @@ static void test_rom(const char *rom_path, const char *sym_path) {
     CHECK("move 354 is PSYCHO BOOST", !strcmp(s, "PSYCHO BOOST"));
     romdata_item_name(&rd, 1, s);
     CHECK("item 1 is MASTER BALL", !strcmp(s, "MASTER BALL"));
+    CHECK("Emerald's last item is 376, read from its table", rd.items_max == 376);
     romdata_item_name(&rd, 376, s);
-    printf("    item %d: %s\n", RD_ITEMS_MAX, s);
+    CHECK("item 376 is OLD SEA MAP", !strcmp(s, "OLD SEA MAP"));
+    romdata_item_name(&rd, 377, s);
+    CHECK("item 377 is past the end: a number", !strcmp(s, "#377"));
     species_stats_t sp;
     CHECK("Treecko: 40/45/35/70/65/55, Medium Slow", romdata_species_stats(&rd, 277, &sp) &&
           sp.base[0] == 40 && sp.base[1] == 45 && sp.base[2] == 35 && sp.base[3] == 70 &&
@@ -380,6 +383,20 @@ static void test_edits(void) {
     edit_set_nickname(&m, name);
     CHECK("a nickname is padded with EOS after its end",
           !memcmp(mon_nickname(&m), "\xCE\xCC\xBF\xBF\xFF\xFF\xFF\xFF\xFF\xFF", 10));
+    {
+        mon_t q = m;
+        edit_set_move(&q, 0, 33, 35);
+        edit_set_move(&q, 1, 0, 0);
+        edit_set_move(&q, 2, 45, 40);
+        edit_set_move(&q, 3, 52, 25);
+        mon_set_pp_bonuses(&q, (uint8_t)(1 << 0 | 2 << 4 | 3 << 6));   /* slot 0: 1, slot 2: 2, slot 3: 3 */
+        q.b[32 + 12 + 8 + 2] = 7;                                    /* move 45 has 7 PP left */
+        edit_compact_moves(&q);
+        CHECK("compacting closes the gap; moves keep their PP and PP Ups",
+              mon_move(&q, 0) == 33 && mon_move(&q, 1) == 45 && mon_move(&q, 2) == 52 && mon_move(&q, 3) == 0 &&
+              mon_pp(&q, 1) == 7 && mon_pp(&q, 2) == 25 && mon_pp(&q, 3) == 0 &&
+              mon_pp_bonuses(&q) == (1 << 0 | 2 << 2 | 3 << 4));
+    }
     mon_store(&m, raw);
     mon_t n;
     mon_load(&n, raw, 1);

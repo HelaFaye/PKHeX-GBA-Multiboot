@@ -28,6 +28,7 @@ int romdata_find(romdata_t *rd, const uint8_t *rom, uint32_t size) {
     rd->rom = rom;
     rd->size = size;
     rd->species_names = rd->move_names = rd->items = rd->base_stats = rd->moves = 0;
+    rd->items_max = 0;
     int found = 0;
     for (uint32_t off = 0x200; off + 64 <= size && found < 5; off += 4) {
         const uint8_t *p = rom + off;
@@ -49,6 +50,14 @@ int romdata_find(romdata_t *rd, const uint8_t *rom, uint32_t size) {
                        at(p + 24, chop_move, sizeof chop_move)) {
                 rd->moves = off; found++;
             }
+        }
+    }
+    if (rd->items) {
+        for (uint32_t k = 1; k < 1000 && rd->items + k * 44 + 16 <= size; k++) {
+            const uint8_t *e = rom + rd->items + k * 44 + 14;
+            const uint32_t id = e[0] | e[1] << 8;
+            if (id == k) rd->items_max = (uint16_t)k;
+            else if (id != 0) break;
         }
     }
     return found;
@@ -77,7 +86,7 @@ void romdata_move_name(const romdata_t *rd, uint16_t move, char *out) {
 
 void romdata_item_name(const romdata_t *rd, uint16_t item, char *out) {
     if (item == 0) { out[0] = '-'; out[1] = 0; return; }
-    if (!rd->items || item > RD_ITEMS_MAX) { number(out, item); return; }
+    if (!rd->items || item > rd->items_max) { number(out, item); return; }
     g3_decode(rd->rom + rd->items + item * 44, 14, out);
 }
 

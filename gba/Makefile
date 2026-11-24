@@ -11,7 +11,7 @@ HOSTCC ?= cc
 all: build/editor.mb
 
 CROSS ?= arm-none-eabi-
-GBA_CFLAGS := -mcpu=arm7tdmi -mthumb -mthumb-interwork -O2 -ffreestanding -fno-builtin \
+GBA_CFLAGS := -mcpu=arm7tdmi -mthumb -mthumb-interwork -O2 -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns \
               -std=c11 -Wall -Wextra -ffunction-sections -fdata-sections
 GBA_SRC := $(CORE) gba/main.c gba/hw.c gba/flash.c gba/libc_min.c src/font_data.c
 

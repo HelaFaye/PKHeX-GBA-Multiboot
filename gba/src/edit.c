@@ -43,6 +43,26 @@ void edit_set_move(mon_t *m, int slot, uint16_t move, uint8_t base_pp) {
     mon_set_move(m, slot, move, move ? base_pp : 0);
 }
 
+void edit_compact_moves(mon_t *m) {
+    uint16_t mv[4];
+    uint8_t pp[4], ups[4];
+    int n = 0;
+    const uint8_t bonuses = mon_pp_bonuses(m);
+    for (int k = 0; k < 4; k++) {
+        if (!mon_move(m, k)) continue;
+        mv[n] = mon_move(m, k);
+        pp[n] = mon_pp(m, k);
+        ups[n] = (uint8_t)(bonuses >> (2 * k) & 3);
+        n++;
+    }
+    uint8_t packed = 0;
+    for (int k = 0; k < 4; k++) {
+        mon_set_move(m, k, k < n ? mv[k] : 0, k < n ? pp[k] : 0);
+        if (k < n) packed |= (uint8_t)(ups[k] << (2 * k));
+    }
+    mon_set_pp_bonuses(m, packed);
+}
+
 void edit_set_nickname(mon_t *m, const uint8_t name[10]) {
     uint8_t *n = mon_nickname(m);
     int end = 0;

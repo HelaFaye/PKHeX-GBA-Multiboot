@@ -59,6 +59,7 @@ void mon_set_item(mon_t *m, uint16_t v) { wr16(SUB(m, G) + 2, v); }
 uint32_t mon_exp(const mon_t *m) { return rd32(SUB(m, G) + 4); }
 void mon_set_exp(mon_t *m, uint32_t v) { wr32(SUB(m, G) + 4, v); }
 uint8_t mon_pp_bonuses(const mon_t *m) { return SUB(m, G)[8]; }
+void mon_set_pp_bonuses(mon_t *m, uint8_t v) { SUB(m, G)[8] = v; }
 uint16_t mon_move(const mon_t *m, int k) { return rd16(SUB(m, A) + 2 * k); }
 uint8_t mon_pp(const mon_t *m, int k) { return SUB(m, A)[8 + k]; }
 void mon_set_move(mon_t *m, int k, uint16_t move, uint8_t pp) {

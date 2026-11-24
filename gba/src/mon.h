@@ -36,6 +36,7 @@ void mon_set_item(mon_t *m, uint16_t v);
 uint32_t mon_exp(const mon_t *m);
 void mon_set_exp(mon_t *m, uint32_t v);
 uint8_t mon_pp_bonuses(const mon_t *m);
+void mon_set_pp_bonuses(mon_t *m, uint8_t v);
 uint16_t mon_move(const mon_t *m, int k);
 uint8_t mon_pp(const mon_t *m, int k);
 void mon_set_move(mon_t *m, int k, uint16_t move, uint8_t pp);

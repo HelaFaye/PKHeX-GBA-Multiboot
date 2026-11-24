@@ -23,11 +23,12 @@ typedef struct {
     const uint8_t *rom;
     uint32_t size;
     uint32_t species_names, move_names, items, base_stats, moves;   /* offsets; 0: not found */
+    uint16_t items_max;           /* this game's last item: 0 when the item table is not found */
 } romdata_t;
 
 #define RD_SPECIES_MAX  411       /* internal species 1..411 (412 is the egg) */
 #define RD_MOVES_MAX    354
-#define RD_ITEMS_MAX    376       /* Emerald's last item; the others have fewer */
+#define RD_ITEMS_MAX    376       /* Emerald's last item; romdata_find reads each game's own */
 
 /* Find the tables in rom[0..size). Returns how many were found (0..5). */
 int romdata_find(romdata_t *rd, const uint8_t *rom, uint32_t size);
@@ -39,6 +40,9 @@ void romdata_item_name(const romdata_t *rd, uint16_t item, char *out);
 /* A species' base stats and growth rate; 0 when the table is not found. */
 #include "growth.h"
 int romdata_species_stats(const romdata_t *rd, uint16_t species, species_stats_t *out);
+/* The item table's length is not stored: each entry holds its own number
+ * (u16 at byte 14), or 0 for an unused one, so the table ends where an
+ * entry holds neither. items_max is the last entry holding its number. */
 /* A move's base PP; 0 when the table is not found. */
 uint8_t romdata_move_pp(const romdata_t *rd, uint16_t move);
 #endif

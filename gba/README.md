@@ -30,9 +30,12 @@ On a Pokémon:
 |---|---|
 | Name | A opens the name editor: Up/Down letter, Left/Right place, SELECT ends the name there, A done, B cancel |
 | Level | Left/Right ±1, L/R ±10. The level is set as the least experience for it. |
-| Item | ±1 / ±10, by item number, with the cartridge's name |
-| Move 1–4 | ±1 / ±10, by move number. The PP is set to the move's base PP, and its PP Ups are cleared. Move 0 empties the slot. |
+| Item | ±1 / ±10, by item number, with the cartridge's name. The last item is read from the cartridge's own table. |
+| Move 1–4 | ±1 / ±10, by move number. The PP is set to the move's base PP, and its PP Ups are cleared. Move 0 empties the slot. On leaving, the moves close up so no empty slot comes before a used one, as the games keep them. |
 | IV, EV | A picks the stat (HP, Atk, Def, Spe, SpA, SpD), and Left/Right/L/R change it. IVs are 0–31; EVs are 0–255, at most 510 in all. |
+
+Eggs are shown, not edited. On a Japanese cartridge, names are not edited
+either: those games use another character set.
 
 A party Pokémon's level and six stats are worked out again after every edit,
 and its HP follows the new maximum as the game does it (`CalculateMonStats`). A
@@ -53,7 +56,7 @@ the one before: the edits are lost, and the save is not.
 
 - **Games:** Ruby, Sapphire, FireRed, LeafGreen and Emerald, found by the
   cartridge's game code. Only English names are shown. Other languages edit the
-  same way, but names show as numbers (`#277`).
+  same way, but names show as numbers (`#277`), and nicknames are not editable.
 - **Save chips:** the 128 KB flash parts these games carry (Sanyo, Macronix).
   The flash code is gbagate's Save Tool's, which mGBA's Sanyo model tests.
 - **Tested:** Emerald, end to end (below).
@@ -70,9 +73,9 @@ Not yet:
 ## Building and testing
 
 ```sh
-make test                       # the core on the host: 59 checks
+make test                       # the core on the host: 60 checks
 make test ROM=emerald.gba SYM=pokeemerald.sym
-                                # + the ROM's tables, against pret's symbols (71)
+                                # + the ROM's tables, against pret's symbols (75)
 make                            # build/editor.mb (arm-none-eabi-gcc, no devkitPro)
 make mgba ROM=emerald.gba GBAGATE=/path/to/gbagate
                                 # the editor on a real Emerald save, in mGBA
@@ -99,8 +102,12 @@ tables, too.
 1. Emerald starts a new game. The game's own `ScriptGiveMon` gives eight
    Pokémon, and `TrySavingData` writes the save.
 2. The editor takes the GBA over, as it would after multiboot.
-3. Key presses only: a nickname, ten levels, an item, two moves, IVs and EVs on
-   the lead, a move on a box Pokémon, then **Write to cartridge**.
+3. Key presses only:
+   - on the lead: a nickname, ten levels, an item, two moves (one cleared, so
+     the moves close up), IVs and EVs;
+   - on an egg the game gave: the same keys, which change nothing;
+   - on a box Pokémon: a move;
+   - then **Write to cartridge**.
 4. The script reads the flash with a reader of its own and checks every edit,
    the untouched slot and the untouched sectors.
 5. A fresh Emerald boots that flash and continues. Its party in RAM has the

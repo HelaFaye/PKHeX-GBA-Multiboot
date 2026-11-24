@@ -39,15 +39,18 @@ MBOX = FREE + 0x800
 STATUS = 0x0203EF00                       # the editor's status block (editor.ld)
 SIZE = 0x20000
 SPECIES = [277, 280, 283, 286, 288, 290, 292, 294]   # internal: Treecko, Torchic, ... (any eight)
+# the sixth (party slot 6) is given as an egg, which the editor must not change
 
 GIVE = '''
 typedef void (*fn)(void);
 typedef unsigned char (*give_fn)(unsigned short, unsigned char, unsigned short, unsigned, unsigned, unsigned char);
+typedef unsigned char (*egg_fn)(unsigned short);
 void entry(void) {
 %s
     *(volatile unsigned *)(SYM_gMain + 4) = SYM_CB2_Overworld | 1;
 }
-''' % '\n'.join('    ((give_fn)(SYM_ScriptGiveMon | 1))(%d, %d, 0, 0, 0, 0);' % (sp, 5 + k)
+''' % '\n'.join(('    ((egg_fn)(SYM_ScriptGiveEgg | 1))(%d);' % sp) if k == 5 else
+                 ('    ((give_fn)(SYM_ScriptGiveMon | 1))(%d, %d, 0, 0, 0, 0);' % (sp, 5 + k))
                  for k, sp in enumerate(SPECIES))
 
 RECALC = '''
@@ -256,6 +259,18 @@ def main(rom, mb_path, out):
     key(e, R)                                    # nothing more fits
     e.shot(os.path.join(out, '4-edited.png'))
     key(e, B)                                    # back to the party
+    key(e, DOWN, 5)                              # the egg, last in the party
+    key(e, A)
+    check('the egg opens', status(e)['screen'] == 3)
+    key(e, DOWN)                                 # Level: try to change it
+    key(e, R, 2)
+    key(e, DOWN, 3)                              # Move 2
+    key(e, RIGHT)
+    key(e, UP, 4)                                # Name
+    key(e, A)
+    check('... but no name editor opens for it', status(e)['screen'] == 3)
+    e.shot(os.path.join(out, '4b-egg.png'))
+    key(e, B)                                    # back to the party
     key(e, B)                                    # the menu
     key(e, DOWN)                                 # Boxes
     key(e, A)
@@ -296,14 +311,17 @@ def main(rom, mb_path, out):
     check('nickname AD', p1['nick'][:3] == enc('AD') + b'\xff')
     check('level %d -> %d' % (p0['level'], p1['level']), p1['level'] == p0['level'] + 10)
     check('item 13', p1['item'] == 13)
-    check('moves 1 and 4 changed (%s -> %s)' % (p0['moves'], p1['moves']),
-          p1['moves'][0] == p0['moves'][0] - 1 and p1['moves'][3] == p0['moves'][3] + 1)
+    edited = [p0['moves'][0] - 1, p0['moves'][1], p0['moves'][2], p0['moves'][3] + 1]
+    packed = [m for m in edited if m] + [0] * edited.count(0)
+    check('moves 1 and 4 changed, then closed up with no gap (%s -> %s)' % (p0['moves'], p1['moves']),
+          p1['moves'] == packed and p1['pp'][len([m for m in edited if m]):] == [0] * edited.count(0))
     check('IVs: HP 31, Atk 3 less', p1['ivs'][0] == 31 and p1['ivs'][1] == max(0, p0['ivs'][1] - 3))
     check('EVs: Atk 255, Def 255, then no more (510 in all)', p1['evs'] == [0, 255, 255, 0, 0, 0])
     check('stats higher for the levels and EVs', all(b > a for a, b in zip(p0['stats'][1:], p1['stats'][1:])))
     others = all(data1[0xF80 + 0x238 + 100 * k:0xF80 + 0x238 + 100 * (k + 1)] ==
                  data0[0xF80 + 0x238 + 100 * k:0xF80 + 0x238 + 100 * (k + 1)] for k in range(1, 6))
-    check('the other five party records untouched', others)
+    check('the other five party records untouched, the egg among them (%s)' % mon(
+          data1[0xF80 + 0x238 + 500:0xF80 + 0x238 + 600])['species'], others)
     b1 = mon(data1[5 * 0xF80 + 4 + 80:5 * 0xF80 + 4 + 160])
     check('box 1, second Pokemon: move 1 two on (%d -> %d)' % (box0[1]['moves'][0], b1['moves'][0]),
           b1['ok'] and b1['moves'][0] == box0[1]['moves'][0] + 2)
