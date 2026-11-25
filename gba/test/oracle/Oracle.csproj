@@ -1,0 +1,14 @@
+<!-- The editor's test oracle: PKHeX.Core itself reads a save and prints what
+     it holds, so the GBA editor's results are checked against PKHeX. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../PKHeX.Core/PKHeX.Core.csproj" />
+  </ItemGroup>
+</Project>

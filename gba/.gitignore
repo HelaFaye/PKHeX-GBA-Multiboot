@@ -1,2 +1,4 @@
 build/
 __pycache__/
+test/oracle/bin/
+test/oracle/obj/

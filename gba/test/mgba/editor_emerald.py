@@ -25,8 +25,10 @@ No save file is kept: the flash is mGBA's, in memory. Screenshots go to
 out-dir.
 """
 import ctypes
+import json
 import os
 import struct
+import subprocess
 import sys
 
 GBAGATE = os.environ.get('GBAGATE', '')
@@ -294,6 +296,9 @@ def main(rom, mb_path, out):
           st['writes'] == 1 and st['last'] == 0)
 
     after = savedata(e)
+    # the saves, for PKHeX: written to the test's output directory, never kept in the repository
+    open(os.path.join(out, 'before.sav'), 'wb').write(before)
+    open(os.path.join(out, 'after.sav'), 'wb').write(after)
     slot1, count1, data1 = newest(after)
     check('the flash: the other slot (%d -> %d), counter + 1 (%d -> %d), both slots whole' % (
         slot0, slot1, count0, count1), slot1 == slot0 ^ 1 and count1 == count0 + 1 and all(s[0] for s in slots(after)))
@@ -342,6 +347,31 @@ def main(rom, mb_path, out):
     game = mon(g.read(g.sym['gPlayerParty'], 100))
     check('Emerald\'s own CalculateMonStats gives the editor\'s stats (%s)' % game['stats'],
           game['stats'] == p1['stats'] and game['level'] == p1['level'])
+    oracle = os.environ.get('ORACLE')
+    if oracle:
+        pk = {}
+        for name in ('before', 'after'):
+            r = subprocess.run(oracle.split() + ['dump', os.path.join(out, name + '.sav')], capture_output=True, text=True)
+            pk[name] = json.loads(r.stdout) if r.returncode == 0 else None
+        check('PKHeX opens both saves (%s)' % (pk['after'] or {}).get('game'), pk['before'] and pk['after'])
+        if pk['after']:
+            a, b = pk['after'], pk['before']
+            lead = a['party'][0]
+            check('PKHeX: every checksum good', a['checksums_ok'])
+            check('PKHeX: the lead as edited (nickname %r, level %d, item %d, moves %s, IVs %s, EVs %s)' % (
+                lead['nickname'], lead['level'], lead['item'], lead['moves'], lead['ivs'], lead['evs']),
+                lead['nickname'] == 'AD' and lead['level'] == p1['level'] and lead['item'] == 13 and
+                lead['moves'] == p1['moves'] and lead['ivs'] == p1['ivs'] and lead['evs'] == p1['evs'] and
+                lead['stats'] == [p1['stats'][1]] + p1['stats'][2:] and lead['checksum_ok'])
+            check('PKHeX: the other party members, the trainer, items and dex unchanged',
+                  a['party'][1:] == b['party'][1:] and a['trainer'] == b['trainer'] and
+                  a['pouches'] == b['pouches'] and (a['dex_seen'], a['dex_caught']) == (b['dex_seen'], b['dex_caught']))
+            moved = [x for x, y in zip(a['boxes'], b['boxes']) if x != y]
+            check('PKHeX: in the boxes only the edited one changed (box %s slot %s: moves %s -> %s)' % (
+                moved[0]['box'] if moved else '-', moved[0]['slot'] if moved else '-',
+                [y for x, y in zip(a['boxes'], b['boxes']) if x != y][0]['mon']['moves'] if moved else '-',
+                moved[0]['mon']['moves'] if moved else '-'),
+                len(moved) == 1 and moved[0]['box'] == 0 and moved[0]['slot'] == 1)
     print('editor: %s' % ('all checks passed' if not fails else '%d FAILED' % fails))
     return 1 if fails else 0
 

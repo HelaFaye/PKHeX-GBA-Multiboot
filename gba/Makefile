@@ -7,7 +7,7 @@
 CORE := src/g3save.c src/mon.c src/g3text.c src/growth.c src/romdata.c src/edit.c src/mem.c
 HOSTCC ?= cc
 
-.PHONY: all test font clean mgba
+.PHONY: all test font clean mgba oracle mgba-oracle
 all: build/editor.mb
 
 CROSS ?= arm-none-eabi-
@@ -44,3 +44,14 @@ clean:
 # Needs gbagate's mGBA harness built (GBAGATE=path) and a ROM you own.
 mgba: build/editor.mb
 	GBAGATE=$(GBAGATE) python3 -I test/mgba/editor_emerald.py "$(ROM)" build/editor.mb build/editor-shots
+
+# PKHeX.Core as the test oracle: it reads the saves the mGBA test leaves and
+# says what they hold (test/oracle). Needs the .NET 10 SDK.
+build/oracle/Oracle.dll: test/oracle/Program.cs test/oracle/Oracle.csproj
+	dotnet build test/oracle/Oracle.csproj -c Release -v q -o build/oracle
+
+oracle: build/oracle/Oracle.dll
+
+# the mGBA test, with PKHeX's reading of its saves checked too
+mgba-oracle: build/editor.mb build/oracle/Oracle.dll
+	ORACLE="dotnet build/oracle/Oracle.dll" GBAGATE=$(GBAGATE) python3 -I test/mgba/editor_emerald.py "$(ROM)" build/editor.mb build/editor-shots
