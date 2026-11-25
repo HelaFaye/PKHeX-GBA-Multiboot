@@ -43,6 +43,20 @@ int romdata_species_stats(const romdata_t *rd, uint16_t species, species_stats_t
 /* The item table's length is not stored: each entry holds its own number
  * (u16 at byte 14), or 0 for an unused one, so the table ends where an
  * entry holds neither. items_max is the last entry holding its number. */
+/* Items a Pokemon may be given to hold, as the games' own GIVE allows: an
+ * entry in use (it holds its own number), not important (byte 24: key items,
+ * HMs). Not offered either, though the game allows them:
+ *   - mail (items 121..132, the games' ItemIsMail): a letter goes with it,
+ *     written in the game;
+ *   - the Enigma Berry (175): its effect is the e-Reader berry saved with it.
+ * Item 0 (nothing) is always allowed. */
+#define ITEM_MAIL_FIRST    121
+#define ITEM_MAIL_LAST     132
+#define ITEM_ENIGMA_BERRY  175
+int romdata_item_is_mail(uint16_t item);
+int romdata_item_holdable(const romdata_t *rd, uint16_t item);
+/* |delta| holdable items on from cur, wrapping through 0 (nothing). */
+uint16_t romdata_next_holdable(const romdata_t *rd, uint16_t cur, int delta);
 /* A move's base PP; 0 when the table is not found. */
 uint8_t romdata_move_pp(const romdata_t *rd, uint16_t move);
 #endif

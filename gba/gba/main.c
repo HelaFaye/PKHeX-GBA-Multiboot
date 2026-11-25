@@ -77,11 +77,24 @@ static int mon_level_of(mon_t *m) {
     return romdata_species_stats(&s_rd, mon_species(m), &sp) ? edit_level(m, &sp) : 0;
 }
 
+/* A record's name in font codes: its own nickname, or for a Japanese one (in
+ * a character set the font lacks) its species name in brackets. */
+static void name_of(mon_t *m, char *out) {
+    if (!edit_name_is_japanese(m)) { g3_decode(mon_nickname(m), 10, out); return; }
+    char sp[12];
+    romdata_species_name(&s_rd, mon_species(m), sp);
+    out[0] = '(';
+    int k = 0;
+    while (sp[k] && k < 8) { out[1 + k] = sp[k]; k++; }
+    out[1 + k] = ')';
+    out[2 + k] = 0;
+}
+
 static void mon_row(int x, int y, int pal, mon_t *m, int long_form) {
     char name[12], lv[6];
     if (!mon_present(m)) { putn(x, y, PAL_DIM, "-", long_form ? 28 : 14); return; }
     if (!m->checksum_ok) { putn(x, y, PAL_WARN, "(bad record)", long_form ? 28 : 14); return; }
-    g3_decode(mon_nickname(m), 10, name);
+    name_of(m, name);
     putn(x, y, pal, name, 11);
     fmt_u(lv, (uint32_t)mon_level_of(m), 3);
     if (long_form) {
@@ -182,19 +195,22 @@ static void mon_screen(uint8_t *src, int party) {
      * else to the game. Japanese games use another character set, so their
      * names are not edited either. */
     const int egg = mon_is_egg(&m);
-    const int western_names = s_code[3] != 'J';
+    /* Anything may be edited, as in PKHeX: what the game would not allow is
+     * said on the warning line, not refused. */
+    const int jp_name = s_code[3] == 'J' || edit_name_is_japanese(&m);
     int row = 0, col = 0, changed = 0;
     for (;;) {
         g_status.screen = SCR_MON;
         char name[12], spn[12];
-        g3_decode(mon_nickname(&m), 10, name);
+        name_of(&m, name);
         romdata_species_name(&s_rd, mon_species(&m), spn);
         header(party ? "Party Pokemon" : "Box Pokemon");
         put(1, 1, PAL_TEXT, mon_is_egg(&m) ? "Egg" : spn);
         fmt_u(buf, mon_species(&m), 1);
         put(13, 1, PAL_DIM, "#");
         put(14, 1, PAL_DIM, buf);
-        g3_decode(mon_ot_name(&m), 7, buf);
+        if (edit_name_is_japanese(&m)) { buf[0] = '('; buf[1] = 'J'; buf[2] = 'P'; buf[3] = ')'; buf[4] = 0; }
+        else g3_decode(mon_ot_name(&m), 7, buf);
         put(1, 2, PAL_DIM, "OT");
         put(4, 2, PAL_TEXT, buf);
         put(12, 2, PAL_DIM, "ID");
@@ -266,8 +282,16 @@ static void mon_screen(uint8_t *src, int party) {
         }
         footer(row >= ROW_IV ? "<>:1 LR:10 A:next stat B:done" : row == ROW_NAME ? "A: change name    B: done"
                                                                       : "<>: 1   L/R: 10   B: done");
-        if (egg) put(0, 18, PAL_WARN, "An egg: shown, not edited");
-        else if (!have_stats) put(0, 18, PAL_WARN, "No base stats: level fixed");
+        {
+            const char *warn = 0;
+            if (egg) warn = "An egg: edits may break it";
+            else if (row == ROW_ITEM && romdata_item_is_mail(mon_item(&m))) warn = "Mail: its letter is not here";
+            else if (row == ROW_ITEM && !romdata_item_holdable(&s_rd, mon_item(&m))) warn = "The game would not give this";
+            else if (row >= ROW_MOVE1 && row <= ROW_MOVE4) warn = edit_move_issue(&m, row - ROW_MOVE1);
+            else if (row == ROW_NAME && jp_name) warn = "Japanese: written in Western";
+            else if (!have_stats) warn = "No base stats: level fixed";
+            if (warn) put(0, 18, PAL_WARN, warn);
+        }
 
         const int k = wait_key();
         if (k & KEY_B) break;
@@ -279,8 +303,7 @@ static void mon_screen(uint8_t *src, int party) {
         if (k & KEY_R) d = 10;
         if (k & KEY_L) d = -10;
         if ((k & KEY_A) && row >= ROW_IV) col = (col + 1) % 6;
-        if (egg) continue;
-        if ((k & KEY_A) && row == ROW_NAME && western_names) {
+        if ((k & KEY_A) && row == ROW_NAME) {
             uint8_t nm[10];
             mem_copy(nm, mon_nickname(&m), 10);
             if (name_editor(nm)) { edit_set_nickname(&m, nm); changed = 1; }
@@ -292,11 +315,10 @@ static void mon_screen(uint8_t *src, int party) {
             if (have_stats) { edit_set_level(&m, &sp, mon_level_of(&m) + d); changed = 1; }
             break;
         case ROW_ITEM: {
-            if (!s_rd.items_max) break;               /* no item table: no item numbers to trust */
-            const int n = s_rd.items_max + 1;
-            int v = (int)mon_item(&m) + d;
-            v = ((v % n) + n) % n;
-            mon_set_item(&m, (uint16_t)v);
+            /* any item number, through the game's last (or any u16 without
+             * a table); the warning line says what the game would refuse */
+            const int n = s_rd.items_max ? s_rd.items_max + 1 : 65536;
+            mon_set_item(&m, (uint16_t)((((int)mon_item(&m) + d) % n + n) % n));
             changed = 1;
             break;
         }
@@ -310,9 +332,10 @@ static void mon_screen(uint8_t *src, int party) {
             break;
         default: {
             const int slot = row - ROW_MOVE1;
-            int v = (int)mon_move(&m, slot) + d;
-            v = ((v % (RD_MOVES_MAX + 1)) + RD_MOVES_MAX + 1) % (RD_MOVES_MAX + 1);
-            edit_set_move(&m, slot, (uint16_t)v, romdata_move_pp(&s_rd, (uint16_t)v));
+            /* any move 0..354; duplicates and Struggle are warned of (edit.h) */
+            const int n = RD_MOVES_MAX + 1;
+            const uint16_t v = (uint16_t)((((int)mon_move(&m, slot) + d) % n + n) % n);
+            edit_set_move(&m, slot, v, romdata_move_pp(&s_rd, v));
             changed = 1;
         }
         }

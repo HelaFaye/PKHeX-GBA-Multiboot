@@ -311,6 +311,26 @@ static void test_rom(const char *rom_path, const char *sym_path) {
     romdata_t rd;
     CHECK("all five tables found", romdata_find(&rd, rom, size) == 5);
     CHECK("battle moves at gBattleMoves", rd.moves == sym(sym_path, "gBattleMoves") - 0x08000000);
+    CHECK("holdable: nothing, Master Ball, Potion, Cheri Berry, TM01",
+          romdata_item_holdable(&rd, 0) && romdata_item_holdable(&rd, 1) && romdata_item_holdable(&rd, 13) &&
+          romdata_item_holdable(&rd, 133) && romdata_item_holdable(&rd, 289));
+    CHECK("not holdable: HM01, the Mach Bike, an unused entry, mail, the Enigma Berry, past the end",
+          !romdata_item_holdable(&rd, 339) && !romdata_item_holdable(&rd, 259) && !romdata_item_holdable(&rd, 52) &&
+          !romdata_item_holdable(&rd, 121) && !romdata_item_holdable(&rd, 175) && !romdata_item_holdable(&rd, 377));
+    uint16_t after51 = 52;
+    while (!romdata_item_holdable(&rd, after51)) after51++;
+    CHECK("stepping skips them: 51 +1 passes the unused run after it, 120 +1 is 133 (mail), TM50 +1 is nothing (HMs and key items after it)",
+          after51 > 55 && romdata_next_holdable(&rd, 51, 1) == after51 && romdata_next_holdable(&rd, 120, 1) == 133 &&
+          romdata_next_holdable(&rd, 338, 1) == 0);
+    {
+        int all = 1, count = 0;
+        uint16_t v = 0;
+        do { v = romdata_next_holdable(&rd, v, 1); all &= romdata_item_holdable(&rd, v); count++; } while (v && count < 1000);
+        char msg[96];
+        snprintf(msg, sizeof msg, "stepping round every item comes back to nothing, through %d holdable ones", count - 1);
+        CHECK(msg, all && v == 0 && count > 200);
+        CHECK("nothing -1 is the last holdable item: TM50", romdata_next_holdable(&rd, 0, -1) == 338);
+    }
     CHECK("PP: Pound 35, Psycho Boost 5", romdata_move_pp(&rd, 1) == 35 && romdata_move_pp(&rd, 354) == 5);
     CHECK("species names where pret puts gSpeciesNames", rd.species_names == sym(sym_path, "gSpeciesNames") - 0x08000000);
     CHECK("move names at gMoveNames", rd.move_names == sym(sym_path, "gMoveNames") - 0x08000000);
@@ -396,6 +416,37 @@ static void test_edits(void) {
               mon_move(&q, 0) == 33 && mon_move(&q, 1) == 45 && mon_move(&q, 2) == 52 && mon_move(&q, 3) == 0 &&
               mon_pp(&q, 1) == 7 && mon_pp(&q, 2) == 25 && mon_pp(&q, 3) == 0 &&
               mon_pp_bonuses(&q) == (1 << 0 | 2 << 2 | 3 << 4));
+    }
+    {
+        mon_t q = m;
+        edit_set_move(&q, 0, 1, 35);   /* Pound */
+        edit_set_move(&q, 1, 2, 25);   /* Karate Chop */
+        edit_set_move(&q, 2, 0, 0);
+        edit_set_move(&q, 3, 0, 0);
+        CHECK("no move twice: Pound +1 skips Karate Chop, which slot 2 knows", edit_next_move(&q, 0, 1) == 3);
+        CHECK("an empty slot +1 skips both known moves", edit_next_move(&q, 2, 1) == 3);
+        edit_set_move(&q, 0, 164, 10);
+        CHECK("Struggle (165) is never offered", edit_next_move(&q, 0, 1) == 166);
+        edit_set_move(&q, 1, 0, 0);
+        edit_set_move(&q, 0, 1, 35);
+        CHECK("the only move cannot become empty: 1 -1 wraps to 354", edit_next_move(&q, 0, -1) == 354);
+        edit_set_move(&q, 1, 2, 25);
+        CHECK("with another move kept, 1 -1 empties the slot", edit_next_move(&q, 0, -1) == 0);
+        CHECK("ten on, still never a known move or Struggle", ({ int ok = 1; uint16_t v = 160;
+              edit_set_move(&q, 0, v, 5);
+              for (int i = 0; i < 40; i++) { v = edit_next_move(&q, 0, 10); ok &= v != 2 && v != 165; edit_set_move(&q, 0, v, 5); }
+              ok; }));
+        edit_set_move(&q, 0, 2, 25);
+        edit_set_move(&q, 1, 2, 25);
+        CHECK("a move known twice is warned of", edit_move_issue(&q, 0) && edit_move_issue(&q, 1));
+        edit_set_move(&q, 1, 165, 1);
+        CHECK("Struggle is warned of", edit_move_issue(&q, 1) && !edit_move_issue(&q, 0));
+        for (int k = 0; k < 4; k++) edit_set_move(&q, k, 0, 0);
+        CHECK("no moves at all is warned of", edit_move_issue(&q, 0) != 0);
+        q.b[18] = 1;
+        CHECK("language 1 is a Japanese name", edit_name_is_japanese(&q));
+        q.b[18] = 2;
+        CHECK("language 2 (English) is not", !edit_name_is_japanese(&q));
     }
     mon_store(&m, raw);
     mon_t n;

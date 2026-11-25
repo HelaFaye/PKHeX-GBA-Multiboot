@@ -71,3 +71,38 @@ void edit_set_nickname(mon_t *m, const uint8_t name[10]) {
         n[k] = end ? 0xFF : name[k];
     }
 }
+
+static int move_allowed(const mon_t *m, int slot, int move) {
+    if (move == MOVE_STRUGGLE || move > 354) return 0;
+    int others = 0;
+    for (int k = 0; k < 4; k++) {
+        if (k == slot || !mon_move(m, k)) continue;
+        others++;
+        if (move && mon_move(m, k) == move) return 0;
+    }
+    return move != 0 || others > 0;
+}
+
+uint16_t edit_next_move(const mon_t *m, int slot, int delta) {
+    const int n = 355, step = delta < 0 ? -1 : 1;
+    int v = mon_move(m, slot);
+    for (int left = delta < 0 ? -delta : delta; left > 0; left--) {
+        int tries = n;
+        do { v = (v + step + n) % n; } while (!move_allowed(m, slot, v) && --tries);
+    }
+    return (uint16_t)v;
+}
+
+int edit_name_is_japanese(const mon_t *m) { return m->b[18] == LANG_JAPANESE; }
+
+const char *edit_move_issue(const mon_t *m, int slot) {
+    const int mv = mon_move(m, slot);
+    if (mv == MOVE_STRUGGLE) return "Struggle: never a known move";
+    int known = 0;
+    for (int k = 0; k < 4; k++) {
+        if (!mon_move(m, k)) continue;
+        known++;
+        if (k != slot && mv && mon_move(m, k) == mv) return "Known twice";
+    }
+    return known ? 0 : "No moves: battles break";
+}

@@ -102,3 +102,24 @@ uint8_t romdata_move_pp(const romdata_t *rd, uint16_t move) {
     if (!rd->moves || move == 0 || move > RD_MOVES_MAX) return 0;
     return rd->rom[rd->moves + move * 12 + 4];
 }
+
+int romdata_item_is_mail(uint16_t item) { return item >= ITEM_MAIL_FIRST && item <= ITEM_MAIL_LAST; }
+
+int romdata_item_holdable(const romdata_t *rd, uint16_t item) {
+    if (item == 0) return 1;
+    if (!rd->items || item > rd->items_max || romdata_item_is_mail(item) || item == ITEM_ENIGMA_BERRY) return 0;
+    const uint8_t *e = rd->rom + rd->items + item * 44;
+    return (e[14] | e[15] << 8) == item && e[24] == 0;
+}
+
+uint16_t romdata_next_holdable(const romdata_t *rd, uint16_t cur, int delta) {
+    const int n = rd->items_max + 1;
+    if (n <= 1) return cur;
+    const int step = delta < 0 ? -1 : 1;
+    int v = cur;
+    for (int left = delta < 0 ? -delta : delta; left > 0; left--) {
+        int tries = n;
+        do { v = (v + step + n) % n; } while (!romdata_item_holdable(rd, (uint16_t)v) && --tries);
+    }
+    return (uint16_t)v;
+}

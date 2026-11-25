@@ -262,13 +262,9 @@ def main(rom, mb_path, out):
     key(e, DOWN, 5)                              # the egg, last in the party
     key(e, A)
     check('the egg opens', status(e)['screen'] == 3)
-    key(e, DOWN)                                 # Level: try to change it
-    key(e, R, 2)
-    key(e, DOWN, 3)                              # Move 2
-    key(e, RIGHT)
-    key(e, UP, 4)                                # Name
-    key(e, A)
-    check('... but no name editor opens for it', status(e)['screen'] == 3)
+    # eggs are editable now (anything is, as in PKHeX); the warning line says so
+    warn = ''.join(chr(e.r16(0x0600F800 + (18 * 32 + x) * 2) & 0xFF) for x in range(30))
+    check('... with the warning that edits may break it (%r)' % warn.strip(), 'egg' in warn.lower())
     e.shot(os.path.join(out, '4b-egg.png'))
     key(e, B)                                    # back to the party
     key(e, B)                                    # the menu
